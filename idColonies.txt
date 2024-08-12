@@ -617,22 +617,164 @@ putHere="/home/daniel/Documents/projects/mossCyanobacteria/culturingCyanos/nanop
 scp -r test@132.180.112.115:$file2get $putHere
 ## and gzip it because too big
 
-
 ## anyway, move over to lab comp to let things run
 
 cd /media/vol1/daniel/nostoc/minionReadsNostoc
 
 nostocReads=/media/vol1/daniel/nostoc/minionReadsNostoc/onlyNostTrimmed_dedup.fasta
 
-ls -lh $nostocReads
-
 cd /media/vol1/daniel/nostoc/blastout
 
 cyanoDB=/media/vol1/daniel/nostoc/cyanoRef16s/silvaCyanos.fasta
-minionReads=/media/vol1/daniel/nostoc/minionReadsNostoc/allNostoc2.fasta
+nostocReads=/media/vol1/daniel/nostoc/minionReadsNostoc/onlyNostTrimmed_dedup.fasta
 nohup blastn -db $cyanoDB \
-  -query $minionReads \
+  -query $nostocReads \
   -num_threads 10 \
   -num_alignments 1 \
-  -out minion2cyanoMatches.csv \
-  -outfmt 10 &
+  -out minion2cyanoMatchesVerbose.txt &
+
+## the previous most common hit is still the most common:
+
+grep -c  ">JN847344.1.1541" minion2cyanoMatchesVerbose.txt ## ____ out of
+
+grep -c "Query=" minion2cyanoMatchesVerbose.txt ## ____
+
+
+## don't know why we didn't notice this before, but this match is 
+## also common:
+
+grep -c KF359696.1.1469 minion2cyanoMatchesVerbose.txt 
+
+grep -c ">KF359696.1.1469" minion2cyanoMatchesVerbose.txt ## but never first hit, hmmm
+
+## 1557 hits, usually following the JN8 accession with an equal e/bit score
+## what is this?
+
+## it is also a leptogium symbiont. 
+
+## so what do we do with this?
+
+## is this the same file as used above by the ssh aligner and muscle?
+## essentially. 
+## so why did the alignments fail so badly?
+
+## get new version of muscle:
+
+wget https://github.com/rcedgar/muscle/releases/download/5.1.0/muscle5.1.linux_intel64
+
+sudo ln -s muscle5.1.linux_intel64 muscle5
+
+cd /media/vol1/daniel/nostoc/ourNostocMSA/muscleAlign
+nostocReads=/media/vol1/daniel/nostoc/minionReadsNostoc/onlyNostTrimmed_dedup.fasta
+nohup muscle5 -super5 $nostocReads -output nostoc16sAlignment.fa &> nostoc16sAlignment.log &
+
+cd /media/vol1/daniel/nostoc/
+
+
+
+## maybe try subsetting. subset to the very highest matches, to the same  
+
+cd /media/vol1/daniel/nostoc/blastout
+
+grep "JN847344.1.1541" nostocMatches.csv > leptoNostocBlastMatches.csv 
+
+cut -d, -f3 leptoNostocBlastMatches.csv 
+
+wc -l  nostocMatches.csv
+
+## this looks like it is still failing. 
+## don't understand. In the blast matches, these all look similar, 
+## at a glance:
+
+grep -c "^>" /media/vol1/daniel/nostoc/blastout/minion2cyanoMatchesVerbose.txt ## pretty much all leptogium nostoc seqs covered
+
+less /media/vol1/daniel/nostoc/blastout/minion2cyanoMatchesVerbose.txt 
+
+grep "|||" -A 1 -B 1 /media/vol1/daniel/nostoc/blastout/minion2cyanoMatchesVerbose.txt |
+less
+
+grep "Plus/Plus" -A 4 /media/vol1/daniel/nostoc/blastout/minion2cyanoMatchesVerbose.txt |
+less
+
+## there are reads in both directions, but I assume muscle can handle this
+
+## different approach: pick out a subset, ~100 reads. 
+## how do we know to which ones are the good ones?
+
+## read into python, pick out the top ones according to escore or bits, with 
+## strict minimums, maybe direction (strand = Plus/Plus)?
+
+## or another simple test - look for strict matches to a sequence from the ref
+## take all the ones that match this, they should mostly be in the same direction
+## and pretty high quality:
+
+
+## eg this sequence, which occurs in the middle, somewhere around 1050 bp:
+
+less /media/vol1/daniel/nostoc/blastout/minion2cyanoMatchesVerbose.txt 
+
+grep  "Query.*AAACCGGAGGAAGGTGG" /media/vol1/daniel/nostoc/blastout/minion2cyanoMatchesVerbose.txt |
+grep  "AAACCGGAGGAAGGTGG" 
+
+grep "Query.*AAACCGGAGGAAGGTGG" /media/vol1/daniel/nostoc/blastout/minion2cyanoMatchesVerbose.txt |
+grep -c "AAACCGGAGGAAGGTGG" 
+
+## still 377 sequences
+
+
+## to pull these out of our nostoc sequences:
+
+cd /media/vol1/daniel/nostoc/minionReadsNostoc
+
+grep -c "AAACCGGAGGAAGGTGG" /media/vol1/daniel/nostoc/minionReadsNostoc/onlyNostTrimmed_dedup.fasta 
+## only 529, not sure if this is intellectually satisfying...try it
+
+python3 
+
+import pandas as pd
+from Bio import SeqIO
+import matplotlib.pyplot as plt; plt.ion()
+import os
+import re
+
+nostocReads = "/media/vol1/daniel/nostoc/minionReadsNostoc/onlyNostTrimmed_dedup.fasta"
+patt = re.compile("AAACCGGAGGAAGGTGG")
+
+## find all sequences with a strict match to this 
+
+patt = re.compile("AAACCGGAGGAAGGTGG")
+a=0
+strictMatches = []
+for values in SeqIO.parse(nostocReads, "fasta"):
+    if patt.findall(str(values.seq)) and len(values.seq) > 1000  :
+        a+=1
+        print(values.id)
+        patt.findall(str(values.seq)) 
+        strictMatches.append(values)
+
+print(a) ## 632 matches
+
+SeqIO.write(strictMatches, "leptogium_subsetStrict.fasta", "fasta")
+
+## try our multiple alignment with this instead
+## back in shell:
+
+
+cd /media/vol1/daniel/nostoc/ourNostocMSA/muscleAlign
+
+lepFasta=/media/vol1/daniel/nostoc/minionReadsNostoc/leptogium_subsetStrict.fasta
+nohup muscle5 -super5 $lepFasta -output lepNost16sAlignment.fa &> lepNost16sAlignment.log &
+
+## let that run tonight.
+
+
+## then perhaps we can get consensus sequences with biopython?:
+## http://biopython.org/DIST/docs/tutorial/Tutorial.html#sec82
+## https://stackoverflow.com/questions/73702044/how-to-get-a-consensus-of-multiple-sequence-alignments-using-biopython
+
+## then hang it on a tree. How do we do that?
+
+## pipeline here:
+https://github.com/FGPLab/cydrasil
+
+## explore the result with ARB 
