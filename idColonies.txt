@@ -1,0 +1,592 @@
+## let's see if we can extract the 16s sequence for this 
+## cyano
+
+## from one of our colony PCRs:
+
+scp test@132.180.112.115:/media/vol1/daniel/nostoc/FAX46654_pass_7c69c392_f65555ec_0.fastq .
+
+## we want a database that contains all public 16s cyanobacteria to blast against. 
+
+## then make some sort of consensus sequence to report. As a preliminary result. 
+
+## downloaded the silva sequences for cyanobacteria 16s
+## we should use this to blast against, to find our possible cyano reads
+
+## go looking for the symbionts after that. 
+
+## for the cyano reads - 
+## silva cyano reads are here:
+
+cd /media/vol1/daniel/nostoc/cyanoRef16s
+
+tar -xzvf arb-silva.de_2023-11-22_id1287436.tgz
+
+## that's rna, U's instead of T's. Does blast have a problem with this?
+
+## our raw read folder is here:
+
+rawReadDir=/var/lib/minknow/data/lowPoresNostoc/Nostoc2/20231121_1424_MN40608_FAX46654_7c69c392/fastq_pass
+
+cp $rawReadDir 
+
+## copied to 
+/media/vol1/daniel/nostoc/minionReadsNostoc
+
+## combine them:
+
+gunzip *
+cat * > allNostoc2.fastq
+
+## to fasta
+seqtk seq -A allNostoc2.fastq > allNostoc2.fasta
+
+## can we clean up the headers?
+
+head -n 10 allNostoc2.fasta | sed "s/runid=.*$//" ## seems to work
+
+sed -i "s/runid=.*$//" allNostoc2.fasta
+
+## great. we need a blastable database
+## silva gives rna, not DNA, is this a problem?
+
+
+makeblastdb -in arb-silva.de_2023-11-22_id1287436_tax_silva_trunc.fasta -parse_seqids -dbtype nucl 
+
+cyanoDB=/media/vol1/daniel/nostoc/cyanoRef16s/arb-silva.de_2023-11-22_id1287436_tax_silva_trunc.fasta
+minionReads=/media/vol1/daniel/nostoc/minionReadsNostoc/allNostoc2.fasta
+
+blastn -db $cyanoDB \
+  -query $minionReads \
+  -num_threads 10 \
+  -num_alignments 1 \
+  -out minion2cyanoMatches.csv \
+  -outfmt 10 &
+
+## ugh, the headers are weird:
+
+cyanoDB=/media/vol1/daniel/nostoc/cyanoRef16s/arb-silva.de_2023-11-22_id1287436_tax_silva_trunc.fasta
+
+## some weird things in there. For instance, why is this in our cyano database? gammaproteo
+
+cd /media/vol1/daniel/nostoc/blastout
+
+grep -c "Proteobacteria" $cyanoDB 
+
+grep "Proteobacteria" $cyanoDB ## prochlorothrix, but misassigned
+
+grep "EF174233.1.1481" $cyanoDB
+
+## looks like a pseudomonas mislabeled as a cyano in the silva database
+
+grep ">" /media/vol1/daniel/nostoc/cyanoRef16s/arb-silva.de_2023-11-22_id1287436_tax_silva_trunc.fasta | less
+
+## ugh. more curation is needed. Get rid of all chloroplast sequences. 
+## modify headers so that genus is included in the blast results
+## etc, etc. 
+
+## blast results:
+
+blRes=/media/vol1/daniel/nostoc/minionReadsNostoc/minion2cyanoMatches.csv
+
+grep "EF174233.1.1481" $cyanoDB
+
+grep "EF174233.1.1481" $blRes
+
+## so we need to rerun the blast without chloroplast sequences in the ref db,
+## or exclude any non-cyano (contaminants, chloroplasts) using
+## the taxonomy in the headers of our reference sequence
+## change the headers to include the taxonomy. 
+
+## to clean up the database a bit:
+
+cyanoDB=/media/vol1/daniel/nostoc/cyanoRef16s/arb-silva.de_2023-11-22_id1287436_tax_silva_trunc.fasta
+
+head $cyanoDB 
+
+head $cyanoDB | sed "s/ /_/g"
+
+## what can we use as a connector...
+
+grep "_" $cyanoDB ## nope
+grep "=" $cyanoDB ## nope
+grep "+" $cyanoDB ## that works, only one of those, in a chloroplast sequence.
+
+## speaking of, how do we get rid of the chloroplast reads?
+
+grep -i "Chloroplast" $cyanoDB 
+
+grep -i "Chloroplast" $cyanoDB | grep "chloroplast"
+
+## get rid of line breaks 
+seqtk seq -l 0 $cyanoDB > silvaCyanosNoLB.fasta
+
+grep -ci "Chloroplast" silvaCyanosNoLB.fasta ## 75,997 sequences are chloroplasts
+
+grep -iV "Chloroplast" silvaCyanosNoLB.fasta
+
+head -n 100 silvaCyanosNoLB.fasta | grep -iv "Chloroplast" 
+
+grep -v "Chloroplast" silvaCyanosNoLB.fasta
+
+grep -iA 1 "Chloroplast" silvaCyanosNoLB.fasta
+
+## ugh, need to go to python
+
+import pandas as pd
+from Bio import SeqIO
+import os
+
+## get our silva cyano database in there:
+
+os.chdir("/media/vol1/daniel/nostoc/cyanoRef16s")
+
+silvaCyanos="arb-silva.de_2023-11-22_id1287436_tax_silva_trunc.fasta"
+
+notChloros=[]
+for rec in SeqIO.parse(silvaCyanos, "fasta"):
+    print(rec.id)
+    if "hloroplast" not in rec.description and "Cyanobacteria" in rec.description: 
+        print ("yep!!!")
+        print (rec.description)
+        notChloros.append(rec)
+
+## check it:
+for i,j in enumerate(notChloros):
+    print(i)
+    print(j)
+
+len(notChloros) ##103898 records. Should not be anything but real cyanos, no chloroplasts.
+
+## write out
+SeqIO.write(notChloros, "silvaCyanos.fasta", "fasta")
+
+## back in the shell
+## we still want to reformat, to keep the phylo info in our 
+## blast csv:
+
+cyanoDB=/media/vol1/daniel/nostoc/cyanoRef16s/silvaCyanos.fasta
+
+grep -c "+" $cyanoDB ## 0
+
+## change out headers, get rid of first space: 
+sed "s/ /;/" -i silvaCyanos.fasta
+
+grep -c "Chloroplast" $cyanoDB ## 0
+
+
+less silvaCyanos.fasta
+
+## looks okay. make db and try again:
+makeblastdb -in silvaCyanos.fasta -dbtype nucl 
+
+cd /media/vol1/daniel/nostoc/blastout
+cyanoDB=/media/vol1/daniel/nostoc/cyanoRef16s/silvaCyanos.fasta
+minionReads=/media/vol1/daniel/nostoc/minionReadsNostoc/allNostoc2.fasta
+nohup blastn -db $cyanoDB \
+  -query $minionReads \
+  -num_threads 10 \
+  -num_alignments 1 \
+  -out minion2cyanoMatches.csv \
+  -outfmt 10 &
+
+cd /media/vol1/daniel/nostoc/blastout
+
+less minion2cyanoMatches.csv
+
+wc -l minion2cyanoMatches.csv ## 35220 hits, out of 
+
+grep -c "^>"  $minionReads ## 40,000
+
+grep -c "Nostocaceae" minion2cyanoMatches.csv ## 11340
+
+grep -c "Nostoc" minion2cyanoMatches.csv ## 11340 
+
+grep -c "Nostocaceae;Nostoc" minion2cyanoMatches.csv ## 9928
+grep -c ";Nostoc," minion2cyanoMatches.csv ## 9940 weird, why more? formatting I guess
+
+## interesting. what to do from here:
+## fastqc, nanoqc
+## 
+## check relative abundances - is nostoc really the most 
+## common thing here?
+## Take out the nostoc sequences, 
+## find some consensus sequences, put them on a 16s tree. 
+## how many "different" nostocs are there?
+## figure out if it something new
+## that's a bit of work.
+## that should be preliminary data for some kind of grant. 
+## but we do need to get some kind of consensus here. 
+## maybe pull out all nostoc hits and run an alignment... 
+## but there are lots...
+
+## we have a two step project here 
+## 1 - get some consensus sequences - vsearch
+## 2 - place these on a tree, probably the tree from 
+##     these folks: https://github.com/FGPLab/cydrasil
+
+## start by getting some representative sequences
+
+## let's pull out all reads that blasted to 16s nostoc sequences
+
+cd /media/vol1/daniel/nostoc/blastout 
+
+grep "Nostocaceae;Nostoc" minion2cyanoMatches.csv > nostocMatches.csv
+cut -f1 -d, nostocMatches.csv > nostocReads.txt
+
+nostocReads="/media/vol1/daniel/nostoc/blastout/nostocReads.txt"
+allReads="/media/vol1/daniel/nostoc/minionReadsNostoc/allNostoc2.fastq"
+## use seqtk to keep only the matches to nostoc
+seqtk subseq $allReads $nostocReads > onlyNostoc.fastq
+
+grep -c "runid=" onlyNostoc.fastq ##9928, looks good
+
+## how do these look?
+
+fastqc -t 10 -o fastqcOut onlyNostoc.fastq
+ 
+scp -r test@132.180.112.115:/media/vol1/daniel/nostoc/minionReadsNostoc/fastqcOut .
+
+
+## yeah, let's cut the adapters, other stuff 
+
+
+## first basepairs are really low quality. Not sure
+## how long the adapters are...
+## can we find our primers in there? the sequences are:
+
+## 16S-27F:
+grep AG.GTTTGAT..TGGCTCAG onlyNostoc.fastq ## 20 bp
+
+## a random sample of reads before this:
+TGTGCATACTGGATCAGTTACGTATTGCT
+TGCTATGTGCTCTACTGGTACAGTTAGCGTATTGCT
+TGGCATCTACTGGTTAGACTTGGTCTTGCT
+ATGTAGCCTTGGTTCAGAGTACGTATTGCT
+TGTGTCACCTGGTTCGAGTTTACGTATTGCT
+
+## 16S-1492R
+
+grep TACCTTGTTA.GACTT onlyNostoc.fastq ## 16 bp
+
+## a random sample of reads before this:
+ATGTCTACCTTGGTTCAGAGTACGTATTGCT
+TATGTGTACGTCCTACTTGGTTCCGTTGCGTATTGCT
+ATGTTTTGCATCTACTGGTTGGTTGGTATTGCT
+TGCCATGCTTGGTTCAGTACGTATTGCT
+
+
+## so it looks like the adaptors are 30-40 bp,
+## and the primers are 16-20bp 
+## I think this means, to be safe, that 
+## we should chop the first 60 reads.
+## and allow the maximum reads after that to 
+## be ~1600 bp:
+
+cd /media/vol1/daniel/nostoc/minionReadsNostoc
+
+#seqtk trimfq -L80 onlyNostoc.fastq > test.fastq
+seqtk trimfq -b60 -L1600  onlyNostoc.fastq > onlyNostTrimmed.fastq
+
+rm fastqcOut/*
+fastqc -t 10 -o fastqcOut onlyNostoc.fastq
+fastqc -t 10 -o fastqcOut test.fastq
+fastqc -t 10 -o fastqcOut onlyNostTrimmed.fastq
+
+## on local, to look at this:
+rm -r fastqcOut/ &&
+scp -r test@132.180.112.115:/media/vol1/daniel/nostoc/minionReadsNostoc/fastqcOut . &&
+firefox fastqcOut/*html
+
+## that's starting to look right. 
+## now, get some otus out of this?
+
+cd /media/vol1/daniel/nostoc/clustering
+
+fastaF=/media/vol1/daniel/nostoc/minionReadsNostoc/onlyNostoc.fastq
+vsearch \
+  --cluster_size $fastaF \
+  --id 0.90 \
+  --relabel otu \
+  --sizein \
+  --sizeout \
+  --fasta_width 0 \
+  --strand both \
+  --consout "nostocConsensusSeqs.fasta" \
+  --threads 10 \
+  --otutabout "nostocClusterTable.csv"
+
+## that fails horribly. at id=0.97 or 0.90 we still have 
+## about the same number of OTUs as reads. 
+## the exceptions are not recognizeable as cyanos 
+## anymore.
+
+## weird.
+
+## try nanoclust
+## tried nanoclust. installation was a nightmare, 
+## had to hand modify scripts, install a thousand
+## dependencies even though it was in conda
+## then it didn't work anyway because the reads weren't abundant
+## enough for the algorithm.
+
+## new approach, we have our blast results,
+## let's sort them by abundance, and assume 
+## the things that blast to the same thing are
+## the same same thing
+
+sed -i '1i qseqid,sseqid,pident,length,mismatch,gapopen,qstart,qend,sstart,send,evalue,bitscore' nostocMatches.csv
+
+python3 
+
+import pandas as pd
+from Bio import SeqIO
+import matplotlib.pyplot as plt; plt.ion()
+import os
+
+os.chdir('/media/vol1/daniel/nostoc/blastout/')
+
+nostocMatches = pd.read_csv('/media/vol1/daniel/nostoc/blastout/nostocMatches.csv', index_col='qseqid')
+## all of these have been id'd to nostoc, so get rid of taxonomy
+nostocMatches['sseqid'] = nostocMatches['sseqid'].str.split(';', expand=True)[[0]]
+
+nostocMatches.head()
+
+nostocMatches.groupby('sseqid').count()
+
+aa = nostocMatches[['sseqid','pident','evalue']].groupby('sseqid').count()
+
+bb = aa.T.iloc[0,:].sort_values(ascending=False)
+
+## the vast majority (7805 out of 9928) have blasted to
+## JN847344.1.1541
+
+## accession number JN847344
+
+## this is from a lichen associated cyanobacteria, from Leptogium
+## from oregon
+
+## what is our mean percent % similarity and length of match?
+
+
+nostocMatches.head()
+
+leptoMatches=nostocMatches[nostocMatches['sseqid']=='JN847344.1.1541']
+
+## second most common (285 out of 9928) match is to a hornwort-associated nostoc:
+hornMatches=nostocMatches[nostocMatches['sseqid']=='CP001037.5515629.5517117']
+
+leptoMatches.head()
+leptoMatches.tail()
+
+leptoMatches[['pident', 'length']].mean() ## on average, 86% match
+
+nostocMatches[['sseqid', 'pident', 'length','evalue']].groupby('sseqid').mean()
+
+aa = nostocMatches[['sseqid', 'pident', 'length']].groupby('sseqid')
+
+hornMatches[['pident', 'length']].mean() ## on average, 86% match also.
+
+nostocMatches[['sseqid','pident']].groupby('sseqid').count()
+
+## so now we have two problems:
+
+## 1 - we need a consensus sequence for our nostoc
+## 2 - we need a tree to put it in.
+
+##### placement on tree ########
+
+## let's see if we can get our consensus seqs,
+## the tree from Cydarasil3 (https://github.com/FGPLab/cydrasil)
+## we'll try pplacer (http://matsen.github.io/pplacer/generated_rst/pplacer.html)
+## also using taxtastic (https://fhcrc.github.io/taxtastic/quickstart.html)
+
+## pplacer needs:
+
+conda create -n pplacer -c bioconda pplacer
+conda activate pplacer
+conda install -c bioconda taxtastic
+
+## make the reference package:
+
+taxit create -l 16s_rRNA -P my.refpkg \
+    --aln-fasta seqs.fasta \
+    --tree-stats tree_stats.txt \
+    --tree-file tree.nwk
+
+seqsfasta=
+tree_stats=
+tree=
+taxit create -l 16s_rRNA -P my.refpkg \
+    --aln-fasta $seqsfasta \
+    --tree-stats $tree_stats \
+    --tree-file $tree
+
+## ugh, cydrasil doesn't have all the files
+## needed for pplacer. Try SSU-align/EPA-ng pipeline that cydrasil
+## recommends:
+
+conda create -n cydrasil -c bioconda ssu-align epa-ng
+
+conda activate cydrasil
+
+/media/vol1/daniel/nostoc/16sTree/cydrasil_repo
+
+consenSeqs=/media/vol1/daniel/nostoc/clustering/nostocConsensusSeqs.fasta
+ssuAlignMask=/media/vol1/daniel/nostoc/16sTree/cydrasil_repo/cydrasil-v3-ssu-align.bacteria.mask
+
+ssu-align $consenSeqs aln
+ssu-mask -s $ssuAlignMask aln
+
+ssu-align query-seqs.fasta output-directory-name
+
+## let's put that on hold for a moment...
+
+####### get consensus sequence for nostoc sp ####
+
+## problem two is to get a consensus 16s sequence from
+## our nanopore sequencing effort
+
+## we think we have a new nostoc species that is 
+## associated with the hylocomium. Let's see.
+
+## we are down to maybe 10,000 sequences that 
+## are probably nostoc. 
+## Let's assume these are what we are looking for.
+
+## for a 16S tree, this is maybe feasible. 
+## let's try ssu-align
+
+nostoc 
+
+conda activate cydrasil
+
+## convert trimmed nostoc to fasta
+cd /media/vol1/daniel/nostoc/minionReadsNostoc
+
+seqtk seq -A onlyNostTrimmed.fastq > onlyNostTrimmed.fasta
+sed -i "s/runid=.*$//" onlyNostTrimmed.fasta
+
+cd /media/vol1/daniel/nostoc/ourNostocMSA
+nostocReads=/media/vol1/daniel/nostoc/minionReadsNostoc/onlyNostTrimmed.fasta
+ssu-align -f $nostocReads msaNostoc
+
+## repeated read names...how can this be...
+grep "de18da17-28ad-4b14-8440-f70e40d5dbe3" $nostocReads
+
+## are there others?:
+
+sed -n "/>/p" $nostocReads | sort | uniq -d ## 841! what is going on??
+
+## look at one set:
+
+grep -A1 "de18da17-28ad-4b14-8440-f70e40d5dbe3" $nostocReads
+
+## those look identical...make sure
+
+readName="de18da17-28ad-4b14-8440-f70e40d5dbe3"
+grep -A1 $readName $nostocReads > twoReads.txt
+diff <(sed -n "2"p twoReads.txt) <(sed -n "4"p twoReads.txt)
+
+## are other reads identical?
+
+sed -n "/>/p" $nostocReads | sort | uniq -d > dupedReads
+
+for readName in $(cat dupedReads); do
+  grep -A1 $readName $nostocReads > twoReads.txt
+  diff <(sed -n "2"p twoReads.txt) <(sed -n "4"p twoReads.txt)
+done
+
+## yeah, those are exact dups. 
+
+## is all the metadata the same? for instance
+
+nostocFastq=/media/vol1/daniel/nostoc/minionReadsNostoc/onlyNostTrimmed.fastq
+
+readName="de18da17-28ad-4b14-8440-f70e40d5dbe3"
+grep -A1 $readName $nostocFastq > twoReads.txt
+#grep -A1 $readName $nostocReads > twoReads.txt
+
+diff <(sed -n "1"p twoReads.txt) <(sed -n "4"p twoReads.txt)
+
+## not sure where they occurred or why? hope that's not a 
+## a problem...hopefully just another quirk of nanopore.
+
+## for the moment, can we remove duplicates?
+
+## use seqkit?
+
+conda deactivate 
+conda activate seqkit
+
+cd /media/vol1/daniel/nostoc/minionReadsNostoc/
+
+seqkit rmdup < onlyNostTrimmed.fasta > onlyNostTrimmed_dedup.fasta
+
+## found 1019 duplicated sequences!! whoah, weird.
+## now try again with ssu
+
+conda deactivate 
+
+conda activate cydrasil
+
+cd /media/vol1/daniel/nostoc/ourNostocMSA
+
+nostocReads=/media/vol1/daniel/nostoc/minionReadsNostoc/onlyNostTrimmed_dedup.fasta
+nohup ssu-align -f $nostocReads msaNostoc &
+
+mv nohup.out nohup.align.out
+
+## mask the low-confidence columns
+
+nohup ssu-mask msaNostoc &
+
+## SSU-ALIGN masking shows that we have a lot of 
+## low confidence columns...it really only trusts
+## 140 columns...ugh nanopore
+
+## how do we view these two alignments (masked/non)
+## and get a consensus out of them?
+
+conda deactivate
+
+conda create -n jalview -c bioconda jalview
+
+conda activate jalview
+
+## neither of these are useful. The raw unmasked one has 10,000 columns,
+## with supposedly high-confidence columns scattered throughout. 
+
+## the masked one blasts to nothing. 
+
+## let's try muscle:
+
+
+cd /media/vol1/daniel/nostoc/ourNostocMSA/muscleAlign
+
+noFasta=/media/vol1/daniel/nostoc/minionReadsNostoc/onlyNostTrimmed.fasta
+nohup muscle -in $noFasta -out nostoc16sAlignment.fa  &
+
+\time muscle -in $noFasta -out nostoc16sAlignment.fa
+
+## think that will run for some time....
+
+## and died. Not enough ram?
+
+13796344
+
+13,796,344 ## that's not that much...hmmm
+
+## as per here: http://www.drive5.com/muscle/muscle.html#_Toc81224829
+
+noFasta=/media/vol1/daniel/nostoc/minionReadsNostoc/onlyNostTrimmed.fasta
+nohup muscle -in $noFasta -out nostoc16sAlignment.fa -maxiters 2 -diags1 -sv &
+
+file2get="/media/vol1/daniel/nostoc/ourNostocMSA/muscleAlign/nostoc16sAlignment.fa"
+putHere="/home/daniel/Documents/projects/mossCyanobacteria/culturingCyanos/idColonies"
+scp -r test@132.180.112.115:$file2get $putHere
+
+## look at it with aliview:
+
+wget http://ormbunkar.se/aliview/downloads/linux/linux-version-1.28/aliview.install.run
+
+gtctcgtgggctcggagatgtgtataagagacagggactacnvgggtwtctaat
