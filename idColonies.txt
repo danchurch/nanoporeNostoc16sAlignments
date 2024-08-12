@@ -1,6 +1,15 @@
 ## let's see if we can extract the 16s sequence for this 
 ## cyano
 
+## as always, make a repo:
+
+
+git clone https://github.com/danchurch/nanoporeNostoc16sAlignments.git
+
+git config --global user.email "danchurchthomas@gmail.com"
+git config --global user.name "danchurch"
+git remote set-url origin git@github.com:danchurch/nanoporeNostoc16sAlignments.git
+
 ## from one of our colony PCRs:
 
 scp test@132.180.112.115:/media/vol1/daniel/nostoc/FAX46654_pass_7c69c392_f65555ec_0.fastq .
@@ -590,3 +599,40 @@ scp -r test@132.180.112.115:$file2get $putHere
 wget http://ormbunkar.se/aliview/downloads/linux/linux-version-1.28/aliview.install.run
 
 gtctcgtgggctcggagatgtgtataagagacagggactacnvgggtwtctaat
+
+## ugh. so the question remains, if these sequences are so 
+## un-alignable, how did blast perfom so well? 
+
+## let's rerun the blast search with verbose results, with alignments,
+## might give us a clue as to what is going on.
+
+## our dedupped data is here on the lab computer, back it up on github
+file2get="/media/vol1/daniel/nostoc/minionReadsNostoc/onlyNostTrimmed_dedup.fasta"
+putHere="/home/daniel/Documents/projects/mossCyanobacteria/culturingCyanos/nanoporeNostoc16sAlignments/data/"
+scp -r test@132.180.112.115:$file2get $putHere
+
+## also the reference fasta we made, of cleaned up silva cyanobacterial accessions:
+file2get="/media/vol1/daniel/nostoc/cyanoRef16s/silvaCyanos.fasta"
+putHere="/home/daniel/Documents/projects/mossCyanobacteria/culturingCyanos/nanoporeNostoc16sAlignments/refDatabases/"
+scp -r test@132.180.112.115:$file2get $putHere
+## and gzip it because too big
+
+
+## anyway, move over to lab comp to let things run
+
+cd /media/vol1/daniel/nostoc/minionReadsNostoc
+
+nostocReads=/media/vol1/daniel/nostoc/minionReadsNostoc/onlyNostTrimmed_dedup.fasta
+
+ls -lh $nostocReads
+
+cd /media/vol1/daniel/nostoc/blastout
+
+cyanoDB=/media/vol1/daniel/nostoc/cyanoRef16s/silvaCyanos.fasta
+minionReads=/media/vol1/daniel/nostoc/minionReadsNostoc/allNostoc2.fasta
+nohup blastn -db $cyanoDB \
+  -query $minionReads \
+  -num_threads 10 \
+  -num_alignments 1 \
+  -out minion2cyanoMatches.csv \
+  -outfmt 10 &
