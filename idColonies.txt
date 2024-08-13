@@ -733,6 +733,8 @@ python3
 
 import pandas as pd
 from Bio import SeqIO
+from Bio import AlignIO
+
 import matplotlib.pyplot as plt; plt.ion()
 import os
 import re
@@ -759,18 +761,59 @@ SeqIO.write(strictMatches, "leptogium_subsetStrict.fasta", "fasta")
 ## try our multiple alignment with this instead
 ## back in shell:
 
-
 cd /media/vol1/daniel/nostoc/ourNostocMSA/muscleAlign
 
 lepFasta=/media/vol1/daniel/nostoc/minionReadsNostoc/leptogium_subsetStrict.fasta
 nohup muscle5 -super5 $lepFasta -output lepNost16sAlignment.fa &> lepNost16sAlignment.log &
 
-## let that run tonight.
+## let that run tonight. 
+## the smaller one (lepto only) is available 
 
+#wget http://ormbunkar.se/aliview/downloads/linux/linux-version-1.28/aliview.install.run
 
-## then perhaps we can get consensus sequences with biopython?:
-## http://biopython.org/DIST/docs/tutorial/Tutorial.html#sec82
-## https://stackoverflow.com/questions/73702044/how-to-get-a-consensus-of-multiple-sequence-alignments-using-biopython
+## doesn't look great.
+
+## I do not know if this is shit data, or diverse data
+
+## I think we have to manually curate 
+
+## use eugene?
+wget https://github.com/ugeneunipro/ugene/releases/download/50.0/ugene-50.0-linux-x86-64.tar.gz
+tar -xf ugene-50.0-linux-x86-64.tar.gz
+
+## on local:
+
+file2get="/media/vol1/daniel/nostoc/ourNostocMSA/muscleAlign/lepNost16sAlignment.fa"
+putHere="/home/daniel/Documents/projects/mossCyanobacteria/culturingCyanos/nanoporeNostoc16sAlignments/msa/lepNost16sAlignment_original.fa"
+scp -r test@132.180.112.115:$file2get $putHere
+
+cd /home/daniel/Documents/projects/mossCyanobacteria/culturingCyanos/nanoporeNostoc16sAlignments/msa
+
+/home/daniel/ugene-50.0/ugene -ui &
+
+## then hand curation in ugene:
+##  1. deleted first 470 bp or so, these were only found in our fourth read, chimeric
+##  2. deleted any columns that consisted of 95% gaps or more. This brought the majority
+##     of sequence lengths to ~1485 bp, approximately the expected length for 16s
+##  3. So trimmed off ends after 1485
+##  4. did an addition filter of removing any column with 60% or more missing bps  
+##  5. that rep sequence was exported, then entered into the alignment, and any site that 
+##     showed 20% for at least two BP is relabeled as "N"
+
+## the consensus sequence is upper/lower case based on quality:
+aa=$(cat leptoNostoc_draftConsensus.txt)
+echo ">leptoNostoc_draftConsensus" > leptoNostoc_draftConsensus.fasta
+echo ${aa^^} >> leptoNostoc_draftConsensus.fasta
+#rm leptoNostoc_draftConsensus.txt
+cat leptoNostoc_draftConsensus.fasta
+
+## how does this blast?
+## without Ns, still best blast is the leptogium symbiont:
+## KF359696.1, PID 98.24, eval=0.0, bitscore 2471
+
+## with Ns, still best blast is the leptogium symbiont. Match is lower. 
+
+## we can try putting both on a 16s tree of cyanobacteria
 
 ## then hang it on a tree. How do we do that?
 
