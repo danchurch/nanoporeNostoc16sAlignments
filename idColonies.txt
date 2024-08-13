@@ -811,7 +811,7 @@ cat leptoNostoc_draftConsensus.fasta
 ## without Ns, still best blast is the leptogium symbiont:
 ## KF359696.1, PID 98.24, eval=0.0, bitscore 2471
 
-## with Ns, still best blast is the leptogium symbiont. Match is lower. 
+## with Ns, still best blast is the leptogium symbiont. Match scores lower, makes sense
 
 ## we can try putting both on a 16s tree of cyanobacteria
 
@@ -820,4 +820,10 @@ cat leptoNostoc_draftConsensus.fasta
 ## pipeline here:
 https://github.com/FGPLab/cydrasil
 
-## explore the result with ARB 
+## step one, align our sequence against their reference sequence set:
+## they recommend one of two alignment software, ssh-aligner or papara
+## so ssh. Let's use ssh-align
+
+
+
+cd /home/daniel/Documents/projects/mossCyanobacteria/culturingCyanos/nanoporeNostoc16sAlignments/msa
