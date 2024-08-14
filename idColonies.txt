@@ -874,4 +874,36 @@ epa-ng -s $refAlignment \
 #        -q $queryAligned \
 #        -m $model 
 
+## that seems to have worked
+
+## we'll try visualization on itol as per instructions
+
+## the info is a bit outdated as far as how to root the tree
+
+## check out these articles:
+https://communities.springernature.com/posts/margulisbacteria-and-saganbacteria-the-newly-uncovered-siblings-of-cyanobacteria
+https://www.nature.com/articles/s41396-021-00898-x
+
+## the github for cydrasil suggests searching for WOR-1 bacteria, or White-Oak-River bacteria, 
+## which are called Sagenbacteria in the article.
+
+## According to this article, all of the Margulisbacteria and Sagenbacteria (hah!)
+## are a sister group to cyanos. So find the branch for all of these 
+## sequences and bend the tree there
+
+## At time of writing, this is the node between gleobacter and these 
+## MargulisBacter/Sagenbacter/Sericytochromatia things: 2528
+
+## regardless of root, this placement also puts our nostoc right in there 
+## with:
+
+## KT760404.1    =  undescribed n-fixing nostoc from grassland soil of NZ (unpub)
+
+## Nostoc.s sp.str KVJ20  = liverwort symbiont
+## the genome for this has been sequenced: https://doi.org/10.1128/mra.01190-19
+
+
+## what about our old friends, closest blast matches: JN847344.1.1541 and KF359696.1
+
+less ${cydDir}Cydrasil-v3-reference-alignment.afa ## they aren't in there, as far as I can tell
 
