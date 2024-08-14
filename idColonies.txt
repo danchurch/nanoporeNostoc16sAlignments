@@ -5,7 +5,6 @@
 
 
 git clone https://github.com/danchurch/nanoporeNostoc16sAlignments.git
-
 git config --global user.email "danchurchthomas@gmail.com"
 git config --global user.name "danchurch"
 git remote set-url origin git@github.com:danchurch/nanoporeNostoc16sAlignments.git
@@ -798,7 +797,7 @@ cd /home/daniel/Documents/projects/mossCyanobacteria/culturingCyanos/nanoporeNos
 ##  3. So trimmed off ends after 1485
 ##  4. did an addition filter of removing any column with 60% or more missing bps  
 ##  5. that rep sequence was exported, then entered into the alignment, and any site that 
-##     showed 20% for at least two BP is relabeled as "N"
+##     showed 20% for at least two BP is relabeled as "N", in a separate file
 
 ## the consensus sequence is upper/lower case based on quality:
 aa=$(cat leptoNostoc_draftConsensus.txt)
@@ -822,8 +821,57 @@ https://github.com/FGPLab/cydrasil
 
 ## step one, align our sequence against their reference sequence set:
 ## they recommend one of two alignment software, ssh-aligner or papara
-## so ssh. Let's use ssh-align
+## so ssh. Let's use ssh-align, start with the N-containing consensus  
+
+## this is already installed somewhere on our lab comp:
+conda activate cydrasil
+
+cd /media/vol1/daniel/nostoc/nanoporeNostoc16sAlignments_repo/placeConsensusSeqOnCydrasil
+
+## the various files we need:
+cydDir=/media/vol1/daniel/nostoc/16sTree/cydrasil_repo/
+querySeq=/media/vol1/daniel/nostoc/nanoporeNostoc16sAlignments_repo/get_consensus_seq/leptoNostoc_withN.fa
+refAlignment=${cydDir}Cydrasil-v3-reference-alignment.afa
+mask=${cydDir}cydrasil-v3-ssu-align.bacteria.mask
+tree=${cydDir}cydrasil-v3-reference-tree.nwk
+model=${cydDir}cydrasil-v3.bestModel
+
+## all there?
+ls -l $querySeq
+ls -l $refAlignment
+ls -l $mask
+ls -l $tree
+ls -l $model
+
+## I don't know if we need to do the alignment step when we only have
+## one sequence?
+
+## we need some sort of alignment, because they want an SSU-Align alignment model
+ssu-align $querySeq ssuAl
+
+## mask it:
+ssu-mask -s $mask ssuAl/
+
+## convert back to fasta:
+ssu-esl-reformat -o ssuAl/ssuAl.bacteria.mask.afa afa ssuAl/ssuAl.bacteria.mask.stk
+
+## this should now be generally aligned with SSU reads from the rest of the
+## world, ready for placement:
+
+queryAligned=/media/vol1/daniel/nostoc/nanoporeNostoc16sAlignments_repo/placeConsensusSeqOnCydrasil/ssuAl/ssuAl.bacteria.mask.afa
+
+## placement on tree
+
+## this works:
+epa-ng -s $refAlignment \
+       -t $tree \
+       -q $queryAligned \
+       -m $model --redo
+
+# ## without redo, aborts. Why??
+# epa-ng -s $refAlignment \
+#        -t $tree \
+#        -q $queryAligned \
+#        -m $model 
 
 
-
-cd /home/daniel/Documents/projects/mossCyanobacteria/culturingCyanos/nanoporeNostoc16sAlignments/msa
