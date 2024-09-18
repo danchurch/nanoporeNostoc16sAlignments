@@ -3,11 +3,11 @@
 
 ## as always, make a repo:
 
-
 git clone https://github.com/danchurch/nanoporeNostoc16sAlignments.git
 git config --global user.email "danchurchthomas@gmail.com"
 git config --global user.name "danchurch"
 git remote set-url origin git@github.com:danchurch/nanoporeNostoc16sAlignments.git
+
 
 ## from one of our colony PCRs:
 
@@ -786,6 +786,11 @@ file2get="/media/vol1/daniel/nostoc/ourNostocMSA/muscleAlign/lepNost16sAlignment
 putHere="/home/daniel/Documents/projects/mossCyanobacteria/culturingCyanos/nanoporeNostoc16sAlignments/msa/lepNost16sAlignment_original.fa"
 scp -r test@132.180.112.115:$file2get $putHere
 
+## to get it on the office comp:
+file2get="/media/vol1/daniel/nostoc/ourNostocMSA/muscleAlign/lepNost16sAlignment.fa"
+putHere="/media/vol/nostocBigFiles/"
+scp -r test@132.180.112.115:$file2get $putHere
+
 cd /home/daniel/Documents/projects/mossCyanobacteria/culturingCyanos/nanoporeNostoc16sAlignments/msa
 
 /home/daniel/ugene-50.0/ugene -ui &
@@ -877,6 +882,8 @@ epa-ng -s $refAlignment \
 ## that seems to have worked
 
 ## we'll try visualization on itol as per instructions
+
+## danChurch
 
 ## the info is a bit outdated as far as how to root the tree
 
