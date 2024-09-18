@@ -902,8 +902,10 @@ https://www.nature.com/articles/s41396-021-00898-x
 ## Nostoc.s sp.str KVJ20  = liverwort symbiont
 ## the genome for this has been sequenced: https://doi.org/10.1128/mra.01190-19
 
-
 ## what about our old friends, closest blast matches: JN847344.1.1541 and KF359696.1
 
 less ${cydDir}Cydrasil-v3-reference-alignment.afa ## they aren't in there, as far as I can tell
+
+## do we need/want a graphic for our JGI application?
+
 
