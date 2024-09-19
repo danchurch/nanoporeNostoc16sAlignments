@@ -881,9 +881,11 @@ epa-ng -s $refAlignment \
 
 ## that seems to have worked
 
+## makes a "jplace" file that is pretty much a newick file, I think, that ITOL can use. 
+
 ## we'll try visualization on itol as per instructions
 
-## danChurch
+## danchurch is itol login name
 
 ## the info is a bit outdated as far as how to root the tree
 
@@ -901,9 +903,17 @@ https://www.nature.com/articles/s41396-021-00898-x
 ## At time of writing, this is the node between gleobacter and these 
 ## MargulisBacter/Sagenbacter/Sericytochromatia things: 2528
 
+## how do I find my placed sequence?
+
+## in the iTOL control panel, use the "Datasets" tab, 
+## a "Datasets" box should pop up, allow you to toggle the placements in the file
+## then the "search placements" box should pop up, and allow highlighting 
+
 ## regardless of root, this placement also puts our nostoc right in there 
 ## with:
 
+## FJ815291.1 = Peltigera-associated Nostoc
+## JX088109.1 = freshwater aquatic calothrix from NZ
 ## KT760404.1    =  undescribed n-fixing nostoc from grassland soil of NZ (unpub)
 
 ## Nostoc.s sp.str KVJ20  = liverwort symbiont
@@ -914,5 +924,4 @@ https://www.nature.com/articles/s41396-021-00898-x
 less ${cydDir}Cydrasil-v3-reference-alignment.afa ## they aren't in there, as far as I can tell
 
 ## do we need/want a graphic for our JGI application?
-
 
