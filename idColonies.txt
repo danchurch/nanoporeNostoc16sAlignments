@@ -914,7 +914,8 @@ https://www.nature.com/articles/s41396-021-00898-x
 
 ## FJ815291.1 = Peltigera-associated Nostoc
 ## JX088109.1 = freshwater aquatic calothrix from NZ
-## KT760404.1    =  undescribed n-fixing nostoc from grassland soil of NZ (unpub)
+## KT760404.1 = undescribed n-fixing nostoc from grassland soil of NZ (unpub)
+## JQ771626.1 = Finnish peltigera
 
 ## Nostoc.s sp.str KVJ20  = liverwort symbiont
 ## the genome for this has been sequenced: https://doi.org/10.1128/mra.01190-19
